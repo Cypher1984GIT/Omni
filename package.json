@@ -34,7 +34,8 @@
       "error.html",
       "icon.png",
       "icon.ico",
-      "package.json"
+      "package.json",
+      "preload.js"
     ]
   }
 }

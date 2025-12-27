@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --accent: #007acc;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: white;
+            overflow: hidden;
+        }
+
+        #header {
+            min-height: 70px;
+            height: auto;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 10px;
+            border-bottom: 1px solid #333;
+            flex-wrap: nowrap;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        #tabs {
+            display: flex;
+            gap: 5px;
+            flex-grow: 1;
+            flex-wrap: nowrap;
+            overflow-x: hidden;
+            /* Hide scrollbar but allow specialized scrolling */
+            scroll-behavior: smooth;
+            padding-bottom: 2px;
+            align-items: center;
+        }
+
+        #tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scroll-btn {
+            background: transparent;
+            font-size: 18px;
+            padding: 0 8px;
+            color: #aaa;
+            display: none;
+            /* Hidden by default */
+            border-radius: 4px;
+            height: 30px;
+        }
+
+        .scroll-btn:hover {
+            background: #333;
+            color: white;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 5px;
+            background: #333;
+            color: white;
+        }
+
+        .tabs-wrapper {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            min-width: 0;
+            gap: 5px;
+        }
+
+        button.active {
+            background: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-left: 1px solid #444;
+            padding-left: 15px;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        select,
+        input {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #2d2d2d;
+            color: white;
+            font-size: 12px;
+        }
+
+        .controls button {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            /* Prevent squishing */
+        }
+
+        .add-btn {
+            background: #28a745;
+            font-weight: bold;
+            font-size: 20px;
+            /* Slightly larger for the plus sign */
+        }
+
+        .reload-all-btn {
+            background: #555;
+        }
+
+        .reload-all-btn:hover {
+            background: #666;
+        }
+
+        .dragging {
+            opacity: 0.5;
+        }
+
+        #empty-state {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+        }
+
+        #empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            stroke: #444;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-container {
+            background: #252526;
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            text-align: center;
+            width: 300px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .modal-text {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-cancel {
+            background: #333;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background: #444;
+        }
+
+        .btn-danger {
+            background: #d9534f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c9302c;
+        }
+
+        #footer {
+            height: 24px;
+            background: #1e1e1e;
+            border-top: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #666;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header">
+        <div class="tabs-wrapper">
+            <button id="scroll-left" class="scroll-btn" onclick="scrollTabs(-1)">‹</button>
+            <div id="tabs"></div>
+            <button id="scroll-right" class="scroll-btn" onclick="scrollTabs(1)">›</button>
+        </div>
+        <div class="controls">
+            <select id="popular-ais">
+                <option value="">-- Add AI --</option>
+            </select>
+            <button class="add-btn" onclick="addNew()">+</button>
+            <button class="reload-all-btn" onclick="reloadAll()" title="Reload All">↻</button>
+            <button onclick="resetDefaults()" title="Reset" style="background:#d9534f;">🗑️</button>
+        </div>
+    </div>
+
+    <div id="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+            <circle cx="12" cy="5" r="2"></circle>
+            <path d="M12 7v4"></path>
+            <line x1="8" y1="16" x2="8" y2="16"></line>
+            <line x1="16" y1="16" x2="16" y2="16"></line>
+        </svg>
+        <h2>No Active AIs</h2>
+        <p>Add a new AI from the toolbar.</p>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-title">Reset to Defaults?</div>
+            <div class="modal-text">All your tabs and custom settings will be lost. This action cannot be undone.</div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-danger" onclick="confirmReset()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+    <div id="footer">Created by Cypher</div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const tabsContainer = document.getElementById('tabs');
+        const selectContainer = document.getElementById('popular-ais');
+
+        const header = document.getElementById('header');
+        const footer = document.getElementById('footer');
+
+        const resizeObserver = new ResizeObserver(entries => {
+            const headerHeight = header.offsetHeight;
+            const footerHeight = footer.offsetHeight;
+            ipcRenderer.send('update-layout', { headerHeight, footerHeight });
+        });
+        resizeObserver.observe(header);
+
+
+
+        ipcRenderer.on('ai-loading-status', (event, { id, isLoading }) => {
+            const btn = document.querySelector(`button[data-id="${id}"]`);
+            if (btn) {
+                const reloadIcon = btn.querySelector('.reload-tab');
+                if (isLoading) {
+                    reloadIcon.classList.add('spinning');
+                    loadingStates.add(id);
+                } else {
+                    reloadIcon.classList.remove('spinning');
+                    loadingStates.delete(id);
+                }
+            }
+        });
+
+        const allAIs = [
+            { name: 'ChatGPT', url: 'https://chat.openai.com' },
+            { name: 'Gemini', url: 'https://gemini.google.com' },
+            { name: 'Grok', url: 'https://grok.com' },
+            { name: 'Copilot', url: 'https://copilot.microsoft.com' },
+            { name: 'Claude', url: 'https://claude.ai' },
+            { name: 'Perplexity', url: 'https://www.perplexity.ai' },
+            { name: 'DeepSeek', url: 'https://chat.deepseek.com' },
+            { name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat' },
+            { name: 'Lumo', url: 'https://lumo.proton.me' }
+        ];
+
+        function createTab(name, url) {
+            const id = name.toLowerCase().replace(/\s/g, '-');
+
+            // Verificar si ya existe
+            const existingBtn = document.querySelector(`button[data-id="${id}"]`);
+            if (existingBtn) {
+                existingBtn.click();
+                return existingBtn;
+            }
+
+            const btn = document.createElement('button');
+            btn.dataset.id = id; // Guardar ID para verificar duplicados
+            btn.dataset.url = url; // Save URL for persistence
+            const icon = `https://www.google.com/s2/favicons?sz=64&domain=${new URL(url).hostname}`;
+
+            btn.innerHTML = `
+                <img src="${icon}" width="16" style="margin-right:8px"> 
+                <span>${name}</span>
+                <span class="reload-tab" style="margin-left:8px; opacity:0.6; font-size:14px; padding:2px 5px; cursor:pointer;" title="Reload">↻</span>
+                <span class="close-tab" style="margin-left:4px; opacity:0.6; font-size:10px; padding:2px 5px; border-radius:50%: hover:{background:#555; opacity:1}">✕</span>
+            `;
+
+            // Estilo hover para la X (manejado vía JS simple para inline o via CSS mejor, aquí inline rápido)
+            const closeBtn = btn.querySelector('.close-tab');
+            closeBtn.onmouseover = () => closeBtn.style.opacity = '1';
+            closeBtn.onmouseout = () => closeBtn.style.opacity = '0.6';
+
+            const reloadBtn = btn.querySelector('.reload-tab');
+            reloadBtn.onmouseover = () => reloadBtn.style.opacity = '1';
+            reloadBtn.onmouseout = () => reloadBtn.style.opacity = '0.6';
+
+            reloadBtn.onclick = (e) => {
+                e.stopPropagation();
+                ipcRenderer.send('reload-ai', id);
+            };
+
+            closeBtn.onclick = (e) => {
+                e.stopPropagation(); // Evitar que seleccione la pestaña al cerrarla
+
+                // Si la pestaña estaba activa, intentar cambiar a otra
+                if (btn.classList.contains('active')) {
+                    const sibling = btn.previousElementSibling || btn.nextElementSibling;
+                    if (sibling) sibling.click();
+                    else ipcRenderer.send('remove-ai', id); // Si era la única, enviamos remove igual y quedará vacío
+                }
+
+                btn.remove();
+                ipcRenderer.send('remove-ai', id);
+                checkEmptyState();
+                saveTabs();
+            };
+
+            btn.onclick = () => {
+                document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                localStorage.setItem('omni-active-tab', id); // Save active tab
+                ipcRenderer.send('switch-tab', id);
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            };
+
+            // Drag and Drop
+            btn.draggable = true;
+            btn.addEventListener('dragstart', () => {
+                btn.classList.add('dragging');
+            });
+            btn.addEventListener('dragend', () => {
+                btn.classList.remove('dragging');
+                saveTabs();
+            });
+
+            tabsContainer.appendChild(btn);
+            ipcRenderer.send('add-ai', { id, url });
+            checkEmptyState();
+            updateScrollButtons();
+            checkEmptyState();
+            saveTabs();
+            return btn;
+        }
+
+        function saveTabs() {
+            const tabs = [];
+            const buttons = tabsContainer.querySelectorAll('button');
+            buttons.forEach(btn => {
+                const name = btn.querySelector('span').textContent;
+                const url = btn.dataset.url;
+                tabs.push({ name, url });
+            });
+            localStorage.setItem('omni-tabs', JSON.stringify(tabs));
+        }
+
+        function checkEmptyState() {
+            const emptyState = document.getElementById('empty-state');
+            if (tabsContainer.children.length === 0) {
+                emptyState.style.display = 'block';
+            } else {
+                emptyState.style.display = 'none';
+            }
+            updateScrollButtons();
+        }
+
+        window.onload = () => {
+            // Populate Dropdown
+            let currentContainer = selectContainer;
+
+            // Create initial group 'General'
+            const generalGroup = document.createElement('optgroup');
+            generalGroup.label = 'General';
+            selectContainer.appendChild(generalGroup);
+            currentContainer = generalGroup;
+
+            allAIs.forEach(ai => {
+                if (ai.name === 'DuckDuckGo') {
+                    const group = document.createElement('optgroup');
+                    group.label = 'Private';
+                    selectContainer.appendChild(group);
+                    currentContainer = group;
+                }
+
+                const opt = document.createElement('option');
+                opt.value = ai.url;
+                opt.textContent = ai.name;
+                currentContainer.appendChild(opt);
+            });
+
+            // Open Saved Tabs or Defaults
+            const saved = localStorage.getItem('omni-tabs');
+            let loaded = false;
+
+            if (saved) {
+                try {
+                    const tabs = JSON.parse(saved);
+                    if (Array.isArray(tabs) && tabs.length > 0) {
+                        tabs.forEach((t, i) => {
+                            createTab(t.name, t.url);
+                        });
+                        loaded = true;
+
+                        // Restore active tab
+                        const lastActive = localStorage.getItem('omni-active-tab');
+                        if (lastActive) {
+                            const btn = document.querySelector(`button[data-id="${lastActive}"]`);
+                            if (btn) btn.click();
+                            else if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.click();
+                        } else {
+                            if (tabsContainer.firstElementChild) tabsContainer.firstElementChild.click();
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error loading saved tabs:", e);
+                }
+            }
+
+            if (!loaded) {
+                // Initial Defaults
+                let firstBtn = null;
+                allAIs.slice(0, 4).forEach((ai, i) => {
+                    const b = createTab(ai.name, ai.url);
+                    if (i === 0) firstBtn = b;
+                });
+
+                // Click the first one AFTER creating all of them to ensure it becomes the active view
+                // (Otherwise the last created one overrides it via add-ai logic)
+                if (firstBtn) {
+                    setTimeout(() => firstBtn.click(), 50);
+                }
+            }
+
+            // Initial scroll check
+            setTimeout(updateScrollButtons, 100);
+        };
+
+        const scrollLeftBtn = document.getElementById('scroll-left');
+        const scrollRightBtn = document.getElementById('scroll-right');
+
+        function scrollTabs(direction) {
+            const scrollAmount = 200;
+            tabsContainer.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+        }
+
+        function updateScrollButtons() {
+            // Check if content overflows
+            if (tabsContainer.scrollWidth > tabsContainer.clientWidth) {
+                // Show/Hide based on position
+                scrollLeftBtn.style.display = tabsContainer.scrollLeft > 0 ? 'block' : 'none';
+                scrollRightBtn.style.display =
+                    (tabsContainer.scrollLeft + tabsContainer.clientWidth < tabsContainer.scrollWidth - 1)
+                        ? 'block' : 'none';
+            } else {
+                scrollLeftBtn.style.display = 'none';
+                scrollRightBtn.style.display = 'none';
+            }
+        }
+
+        tabsContainer.addEventListener('scroll', updateScrollButtons);
+        window.addEventListener('resize', updateScrollButtons);
+
+        function addNew() {
+            const sel = document.getElementById('popular-ais');
+            let url = "";
+            let name = "";
+
+            if (sel.value) {
+                // Si seleccionó del dropdown
+                url = sel.value;
+                name = sel.options[sel.selectedIndex].text;
+            }
+
+            if (url) {
+                const btn = createTab(name, url);
+                btn.click(); // Seleccionar automáticamente
+                sel.value = "";
+            }
+        }
+
+        function reloadAll() {
+            ipcRenderer.send('reload-all-ais');
+        }
+
+        function resetDefaults() {
+            ipcRenderer.send('hide-current-view');
+            document.getElementById('confirmation-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmation-modal').style.display = 'none';
+            // Restore active view. We need the active ID.
+            const activeBtn = document.querySelector('button.active');
+            if (activeBtn) {
+                ipcRenderer.send('show-current-view', activeBtn.dataset.id);
+            }
+        }
+
+        function confirmReset() {
+            localStorage.removeItem('omni-tabs');
+            localStorage.removeItem('omni-active-tab');
+            location.reload();
+        }
+
+        tabsContainer.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(tabsContainer, e.clientX);
+            const draggable = document.querySelector('.dragging');
+            if (draggable) {
+                if (afterElement == null) {
+                    tabsContainer.appendChild(draggable);
+                } else {
+                    tabsContainer.insertBefore(draggable, afterElement);
+                }
+            }
+        });
+
+        function getDragAfterElement(container, x) {
+            const draggableElements = [...container.querySelectorAll('button:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = x - box.left - box.width / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+    </script>
+</body>
+
+</html>
